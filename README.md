@@ -25,7 +25,7 @@ Most configuration is used to make JBrowserDriver.
 
 - [ ] Test for `Url Provided: false` configuration.
 - [ ] Add some attribute to result flowfile.
- - [ ] Source URL
+ - [x] Source URL
  - [ ] Page Title
  - [ ] Etc.
 - [ ] Add capabilities to execute javascript after page loading. 
