@@ -4,7 +4,7 @@ Nifi Headless Browser Processor
 **Currently, `URL Provided` configuration is only tested.**
 
 * Returns the page source in its current state to FlowFile, including any DOM updates that occurred after page load.
-* Use JBrowser
+* Use [JBrowserDriver](https://github.com/MachinePublishers/jBrowserDriver).
 
 # Configurations
 
