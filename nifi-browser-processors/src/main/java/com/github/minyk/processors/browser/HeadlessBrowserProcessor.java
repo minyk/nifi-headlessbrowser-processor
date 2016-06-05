@@ -151,8 +151,7 @@ public class HeadlessBrowserProcessor extends AbstractProcessor {
         String range = context.getProperty(PORT_RANGE).getValue();
         String host = context.getProperty(HOST_OR_IP).getValue();
 
-        String cp = "-DCLASSPATH=\"/Users/minyk/apache/nifi-1.0.0-SNAPSHOT/work/nar/extensions/nifi-browser-nar-0.1.nar-unpacked/META-INF/bundled-dependencies/*\"";
-        driver = new JBrowserDriver(Settings.builder().processes(range, host).timezone(tz).javaOptions(cp).build());
+        driver = new JBrowserDriver(Settings.builder().processes(range, host).timezone(tz).build());
     }
 
     @Override
