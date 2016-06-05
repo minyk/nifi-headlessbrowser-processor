@@ -20,8 +20,8 @@ import com.machinepublishers.jbrowserdriver.JBrowserDriver;
 import com.machinepublishers.jbrowserdriver.Settings;
 import com.machinepublishers.jbrowserdriver.Timezone;
 import org.apache.nifi.components.PropertyDescriptor;
-import org.apache.nifi.components.Validator;
 import org.apache.nifi.flowfile.FlowFile;
+import org.apache.nifi.nar.NarClassLoader;
 import org.apache.nifi.processor.*;
 import org.apache.nifi.annotation.behavior.ReadsAttribute;
 import org.apache.nifi.annotation.behavior.ReadsAttributes;
@@ -40,6 +40,7 @@ import org.apache.nifi.stream.io.StreamUtils;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URL;
 import java.util.*;
 
 @Tags({"Get", "HTML", "Browser"})
@@ -49,11 +50,20 @@ import java.util.*;
 @WritesAttributes({@WritesAttribute(attribute="", description="")})
 public class HeadlessBrowserProcessor extends AbstractProcessor {
 
+    public static final PropertyDescriptor HOST_OR_IP = new PropertyDescriptor
+            .Builder().name("Host")
+            .description("Host name or IP address to bind.")
+            .required(true)
+            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
+            .defaultValue("localhost")
+            .build();
+
     public static final PropertyDescriptor IS_URL_PROVIDED = new PropertyDescriptor
             .Builder().name("Url Provided")
             .description("If true, read the page from URL property else read page url from the flowfile.")
             .required(true)
             .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
+            .allowableValues("true", "false")
             .defaultValue("false")
             .build();
 
@@ -75,10 +85,10 @@ public class HeadlessBrowserProcessor extends AbstractProcessor {
 
     public static final PropertyDescriptor PORT_RANGE = new PropertyDescriptor
             .Builder().name("Port Range")
-            .description("A comma separated list of ports and/or port ranges (ranges are inclusive and separated by a dash) -- e.g., 10000-10007,12500,12502,15376-15380")
+            .description("A port range (range is inclusive and separated by a dash) -- e.g., 10000-10007")
             .required(true)
-            .defaultValue("50000-60000")
-            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
+            .defaultValue("50001-59999")
+            .addValidator(JBrowserSettingsValidators.PORT_RANGE_VALIDATOR)
             .build();
 
     public static final Relationship SUCCESS = new Relationship.Builder()
@@ -97,9 +107,22 @@ public class HeadlessBrowserProcessor extends AbstractProcessor {
 
     private JBrowserDriver driver;
 
+    private final static String CLASSPATH = "java.class.path";
+
+    static {
+        URL[] urls = ((NarClassLoader)HeadlessBrowserProcessor.class.getClassLoader()).getURLs();
+
+        String cp = "";
+        for(URL url : urls) {
+            cp = cp + ":" + url.getFile();
+        }
+        System.setProperty(CLASSPATH,System.getProperty(CLASSPATH, "") + cp );
+    }
+
     @Override
     protected void init(final ProcessorInitializationContext context) {
         final List<PropertyDescriptor> descriptors = new ArrayList<PropertyDescriptor>();
+        descriptors.add(HOST_OR_IP);
         descriptors.add(IS_URL_PROVIDED);
         descriptors.add(PAGE_URL);
         descriptors.add(TIMEZONE);
@@ -110,7 +133,6 @@ public class HeadlessBrowserProcessor extends AbstractProcessor {
         relationships.add(SUCCESS);
         relationships.add(FAILED);
         this.relationships = Collections.unmodifiableSet(relationships);
-
     }
 
     @Override
@@ -127,7 +149,10 @@ public class HeadlessBrowserProcessor extends AbstractProcessor {
     public void onScheduled(final ProcessContext context) {
         Timezone tz = Timezone.byName(context.getProperty(TIMEZONE).getValue());
         String range = context.getProperty(PORT_RANGE).getValue();
-        driver = new JBrowserDriver(Settings.builder().processes(range).timezone(tz).build());
+        String host = context.getProperty(HOST_OR_IP).getValue();
+
+        String cp = "-DCLASSPATH=\"/Users/minyk/apache/nifi-1.0.0-SNAPSHOT/work/nar/extensions/nifi-browser-nar-0.1.nar-unpacked/META-INF/bundled-dependencies/*\"";
+        driver = new JBrowserDriver(Settings.builder().processes(range, host).timezone(tz).javaOptions(cp).build());
     }
 
     @Override

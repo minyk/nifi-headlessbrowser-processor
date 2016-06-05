@@ -50,10 +50,5 @@
             <version>4.11</version>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>com.machinepublishers</groupId>
-            <artifactId>jbrowserdriver</artifactId>
-            <version>0.14.3</version>
-        </dependency>
     </dependencies>
 </project>
