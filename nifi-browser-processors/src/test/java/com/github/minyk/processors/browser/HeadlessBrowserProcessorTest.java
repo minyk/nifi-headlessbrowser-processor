@@ -41,9 +41,19 @@ public class HeadlessBrowserProcessorTest {
     }
 
     @Test
-    public void testProcessor() {
+    public void testProcessorFor200() {
         testRunner.run();
         List<MockFlowFile> result = testRunner.getFlowFilesForRelationship(HeadlessBrowserProcessor.SUCCESS);
+
+        Assert.assertEquals(1, result.size());
+        result.get(0).assertAttributeExists("url");
+    }
+
+    @Test
+    public void testProcessorFor404() {
+        testRunner.setProperty(HeadlessBrowserProcessor.PAGE_URL, "https://www.google.co.kr/should-not-found.html");
+        testRunner.run();
+        List<MockFlowFile> result = testRunner.getFlowFilesForRelationship(HeadlessBrowserProcessor.FAILED);
 
         Assert.assertEquals(1, result.size());
     }

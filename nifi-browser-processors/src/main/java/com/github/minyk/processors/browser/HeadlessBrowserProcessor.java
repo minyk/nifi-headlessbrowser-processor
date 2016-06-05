@@ -40,19 +40,23 @@ import org.apache.nifi.stream.io.StreamUtils;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.URLClassLoader;
 import java.util.*;
 
-@Tags({"Get", "HTML", "Browser"})
-@CapabilityDescription("Returns the page source in its current state, including any DOM updates that occurred after page load")
-@SeeAlso({})
-@ReadsAttributes({@ReadsAttribute(attribute="", description="")})
-@WritesAttributes({@WritesAttribute(attribute="", description="")})
+@Tags({"get", "html", "browser", "source", "input", "dom"})
+@CapabilityDescription("Returns the page source in its current state, including any DOM updates that occurred after page load.")
+@WritesAttributes({
+                @WritesAttribute(attribute="URL", description="URL of the source"),
+                @WritesAttribute(attribute = "Timezone", description = "Timezone when page loading.")
+        })
 public class HeadlessBrowserProcessor extends AbstractProcessor {
 
     public static final PropertyDescriptor HOST_OR_IP = new PropertyDescriptor
             .Builder().name("Host")
-            .description("Host name or IP address to bind.")
+            .description("Host name or IP address to bind client.")
             .required(true)
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .defaultValue("localhost")
@@ -60,7 +64,7 @@ public class HeadlessBrowserProcessor extends AbstractProcessor {
 
     public static final PropertyDescriptor IS_URL_PROVIDED = new PropertyDescriptor
             .Builder().name("Url Provided")
-            .description("If true, read the page from URL property else read page url from the flowfile.")
+            .description("If true, read the page from URL property else read page url from the flowfile content.")
             .required(true)
             .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
             .allowableValues("true", "false")
@@ -91,6 +95,13 @@ public class HeadlessBrowserProcessor extends AbstractProcessor {
             .addValidator(JBrowserSettingsValidators.PORT_RANGE_VALIDATOR)
             .build();
 
+    public static final PropertyDescriptor JAVASCRIPT = new PropertyDescriptor
+            .Builder().name("Javascript")
+            .description("This script executes after page load.")
+            .required(false)
+            .expressionLanguageSupported(true)
+            .build();
+
     public static final Relationship SUCCESS = new Relationship.Builder()
             .name("success")
             .description("Relationship for response 200.")
@@ -108,28 +119,34 @@ public class HeadlessBrowserProcessor extends AbstractProcessor {
     private JBrowserDriver driver;
 
     private final static String CLASSPATH = "java.class.path";
+    private final static String ATTR_URL = "url";
+    private final static String ATTR_TIMEZONE = "timezone";
 
     static {
-        URL[] urls = ((NarClassLoader)HeadlessBrowserProcessor.class.getClassLoader()).getURLs();
+        if(HeadlessBrowserProcessor.class.getClassLoader() instanceof URLClassLoader) {
+            URL[] urls = ((URLClassLoader) HeadlessBrowserProcessor.class.getClassLoader()).getURLs();
 
-        String cp = "";
-        for(URL url : urls) {
-            cp = cp + ":" + url.getFile();
+            String cp = "";
+            for (URL url : urls) {
+                cp = cp + ":" + url.getFile();
+            }
+            System.setProperty(CLASSPATH, System.getProperty(CLASSPATH, "") + cp);
         }
-        System.setProperty(CLASSPATH,System.getProperty(CLASSPATH, "") + cp );
     }
 
     @Override
     protected void init(final ProcessorInitializationContext context) {
-        final List<PropertyDescriptor> descriptors = new ArrayList<PropertyDescriptor>();
+        final List<PropertyDescriptor> descriptors = new ArrayList<>();
         descriptors.add(HOST_OR_IP);
         descriptors.add(IS_URL_PROVIDED);
         descriptors.add(PAGE_URL);
         descriptors.add(TIMEZONE);
         descriptors.add(PORT_RANGE);
+        descriptors.add(JAVASCRIPT);
+
         this.descriptors = Collections.unmodifiableList(descriptors);
 
-        final Set<Relationship> relationships = new HashSet<Relationship>();
+        final Set<Relationship> relationships = new HashSet<>();
         relationships.add(SUCCESS);
         relationships.add(FAILED);
         this.relationships = Collections.unmodifiableSet(relationships);
@@ -175,13 +192,25 @@ public class HeadlessBrowserProcessor extends AbstractProcessor {
 
                 }
             });
+
             String url = Arrays.toString(value);
+
+            try {
+                new URL(url);
+            } catch (MalformedURLException e) {
+                getLogger().error("Malformed URL: " + url);
+                return;
+            }
             driver.get(url);
         }
 
-        if(driver.getStatusCode() == 200 ) {
+        if(driver.getStatusCode() == HttpURLConnection.HTTP_OK ) {
             if(url_provided) {
                 flowFile = session.create();
+            }
+
+            if(context.getProperty(JAVASCRIPT).isSet()) {
+                driver.executeScript(context.getProperty(JAVASCRIPT).getValue());
             }
 
             FlowFile outputflowFile = session.append(flowFile, new OutputStreamCallback() {
@@ -190,10 +219,27 @@ public class HeadlessBrowserProcessor extends AbstractProcessor {
                     out.write(driver.getPageSource().getBytes());
                 }
             });
-            getLogger().info("Move result to success connection: " + driver.getCurrentUrl());
+
+            Map<String, String> attrs = new HashMap<>();
+            attrs.put(ATTR_URL, driver.getCurrentUrl());
+            attrs.put(ATTR_TIMEZONE, context.getProperty(TIMEZONE).getValue());
+
+            outputflowFile = session.putAllAttributes(outputflowFile, attrs);
+
+            getLogger().info("Move result to success connection: " + attrs.get(ATTR_URL));
             session.transfer(outputflowFile, SUCCESS);
+
+        } else if(driver.getStatusCode() == HttpURLConnection.HTTP_NOT_FOUND) {
+            getLogger().warn("Page is not found: " + driver.getCurrentUrl());
+            if(flowFile == null) {
+                flowFile = session.create();
+            }
+            session.transfer(session.penalize(flowFile), FAILED);
         } else {
             getLogger().warn("Move failed URL to failed connection: " + driver.getCurrentUrl());
+            if(flowFile == null) {
+                flowFile = session.create();
+            }
             session.transfer(session.penalize(flowFile), FAILED);
         }
     }
