@@ -35,13 +35,13 @@ public class HeadlessBrowserProcessorTest {
     public void init() {
         testRunner = TestRunners.newTestRunner(HeadlessBrowserProcessor.class);
         testRunner.setProperty(HeadlessBrowserProcessor.IS_URL_PROVIDED, "true");
-        testRunner.setProperty(HeadlessBrowserProcessor.PAGE_URL, "https://www.google.co.kr");
         testRunner.setProperty(HeadlessBrowserProcessor.PORT_RANGE, "50001-59999");
         testRunner.setProperty(HeadlessBrowserProcessor.TIMEZONE, Timezone.ASIA_SEOUL.name());
     }
 
     @Test
     public void testProcessorFor200() {
+        testRunner.setProperty(HeadlessBrowserProcessor.PAGE_URL, "https://www.google.co.kr");
         testRunner.run();
         List<MockFlowFile> result = testRunner.getFlowFilesForRelationship(HeadlessBrowserProcessor.SUCCESS);
 
@@ -54,6 +54,17 @@ public class HeadlessBrowserProcessorTest {
         testRunner.setProperty(HeadlessBrowserProcessor.PAGE_URL, "https://www.google.co.kr/should-not-found.html");
         testRunner.run();
         List<MockFlowFile> result = testRunner.getFlowFilesForRelationship(HeadlessBrowserProcessor.FAILED);
+
+        Assert.assertEquals(1, result.size());
+    }
+
+    @Test
+    public void testProcessorForJavascriptExecution() {
+        testRunner.setProperty(HeadlessBrowserProcessor.PAGE_URL, "https://www.google.co.kr");
+        //Click "I'm Feeling Lucky" Button.
+        testRunner.setProperty(HeadlessBrowserProcessor.JAVASCRIPT, "document.getElementsByName('btnI')[0].click();");
+        testRunner.run();
+        List<MockFlowFile> result = testRunner.getFlowFilesForRelationship(HeadlessBrowserProcessor.SUCCESS);
 
         Assert.assertEquals(1, result.size());
     }

@@ -99,7 +99,8 @@ public class HeadlessBrowserProcessor extends AbstractProcessor {
             .Builder().name("Javascript")
             .description("This script executes after page load.")
             .required(false)
-            .expressionLanguageSupported(true)
+            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
+            .expressionLanguageSupported(false)
             .build();
 
     public static final Relationship SUCCESS = new Relationship.Builder()
@@ -204,13 +205,13 @@ public class HeadlessBrowserProcessor extends AbstractProcessor {
             driver.get(url);
         }
 
+        if(driver.getStatusCode() == HttpURLConnection.HTTP_OK && context.getProperty(JAVASCRIPT).isSet()) {
+            driver.executeScript(context.getProperty(JAVASCRIPT).getValue());
+        }
+
         if(driver.getStatusCode() == HttpURLConnection.HTTP_OK ) {
             if(url_provided) {
                 flowFile = session.create();
-            }
-
-            if(context.getProperty(JAVASCRIPT).isSet()) {
-                driver.executeScript(context.getProperty(JAVASCRIPT).getValue());
             }
 
             FlowFile outputflowFile = session.append(flowFile, new OutputStreamCallback() {
