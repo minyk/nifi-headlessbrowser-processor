@@ -95,14 +95,6 @@ public class HeadlessBrowserProcessor extends AbstractProcessor {
             .addValidator(JBrowserSettingsValidators.PORT_RANGE_VALIDATOR)
             .build();
 
-    public static final PropertyDescriptor JAVASCRIPT = new PropertyDescriptor
-            .Builder().name("Javascript")
-            .description("This script executes after page load.")
-            .required(false)
-            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
-            .expressionLanguageSupported(false)
-            .build();
-
     public static final Relationship SUCCESS = new Relationship.Builder()
             .name("success")
             .description("Relationship for response 200.")
@@ -143,7 +135,6 @@ public class HeadlessBrowserProcessor extends AbstractProcessor {
         descriptors.add(PAGE_URL);
         descriptors.add(TIMEZONE);
         descriptors.add(PORT_RANGE);
-        descriptors.add(JAVASCRIPT);
 
         this.descriptors = Collections.unmodifiableList(descriptors);
 
@@ -203,10 +194,6 @@ public class HeadlessBrowserProcessor extends AbstractProcessor {
                 return;
             }
             driver.get(url);
-        }
-
-        if(driver.getStatusCode() == HttpURLConnection.HTTP_OK && context.getProperty(JAVASCRIPT).isSet()) {
-            driver.executeScript(context.getProperty(JAVASCRIPT).getValue());
         }
 
         if(driver.getStatusCode() == HttpURLConnection.HTTP_OK ) {

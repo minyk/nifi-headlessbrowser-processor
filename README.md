@@ -16,7 +16,8 @@ Most configuration is used to make JBrowserDriver.
  * Page URL: URL for processing. Used only `Url Provided` is `true`.
  * Timezone: Timezone for browser. Select from dropdown list.
  * Port Range: port range for JBrowserDriverServer. This range should be multiple of three.
- * Javascript: Script after page loading. Currently, EL is not supported.
+ * ~~Javascript: Script after page loading. Currently, EL is not supported.~~
+  * Remove for now due to timing issue.
 
 * Relationship
  * success: success relationship of this processor. Flowfile contains page source of input URL.
@@ -29,4 +30,4 @@ Most configuration is used to make JBrowserDriver.
  - [x] Source URL
  - [ ] Page Title
  - [ ] Etc.
-- [x] Add capabilities to execute javascript after page loading. 
+- [ ] Add capabilities to execute javascript after page loading. 

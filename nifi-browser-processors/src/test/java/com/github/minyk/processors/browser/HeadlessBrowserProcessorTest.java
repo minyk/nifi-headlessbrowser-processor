@@ -58,15 +58,4 @@ public class HeadlessBrowserProcessorTest {
         Assert.assertEquals(1, result.size());
     }
 
-    @Test
-    public void testProcessorForJavascriptExecution() {
-        testRunner.setProperty(HeadlessBrowserProcessor.PAGE_URL, "https://www.google.co.kr");
-        //Click "I'm Feeling Lucky" Button.
-        testRunner.setProperty(HeadlessBrowserProcessor.JAVASCRIPT, "document.getElementsByName('btnI')[0].click();");
-        testRunner.run();
-        List<MockFlowFile> result = testRunner.getFlowFilesForRelationship(HeadlessBrowserProcessor.SUCCESS);
-
-        Assert.assertEquals(1, result.size());
-    }
-
 }
