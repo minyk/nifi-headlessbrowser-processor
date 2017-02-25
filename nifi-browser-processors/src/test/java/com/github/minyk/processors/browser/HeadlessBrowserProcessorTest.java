@@ -41,7 +41,7 @@ public class HeadlessBrowserProcessorTest {
 
     @Test
     public void testProcessorFor200() {
-        testRunner.setProperty(HeadlessBrowserProcessor.PAGE_URL, "https://www.google.co.kr");
+        testRunner.setProperty(HeadlessBrowserProcessor.PAGE_URL, "https://www.google.com");
         testRunner.run();
         List<MockFlowFile> result = testRunner.getFlowFilesForRelationship(HeadlessBrowserProcessor.SUCCESS);
 
