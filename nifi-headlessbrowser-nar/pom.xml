@@ -18,11 +18,11 @@
 
     <parent>
         <groupId>com.github.minyk</groupId>
-        <artifactId>nifi-browser-bundle</artifactId>
+        <artifactId>nifi-headlessbrowser-bundle</artifactId>
         <version>0.1</version>
     </parent>
 
-    <artifactId>nifi-browser-nar</artifactId>
+    <artifactId>nifi-headlessbrowser-nar</artifactId>
     <version>0.1</version>
     <packaging>nar</packaging>
     <properties>
@@ -33,7 +33,7 @@
     <dependencies>
         <dependency>
             <groupId>com.github.minyk</groupId>
-            <artifactId>nifi-browser-processors</artifactId>
+            <artifactId>nifi-headlessbrowser-processor</artifactId>
             <version>0.1</version>
         </dependency>
     </dependencies>

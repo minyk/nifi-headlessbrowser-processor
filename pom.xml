@@ -23,21 +23,16 @@
     </parent>
 
     <groupId>com.github.minyk</groupId>
-    <artifactId>nifi-browser-bundle</artifactId>
+    <artifactId>nifi-headlessbrowser-bundle</artifactId>
     <version>0.1</version>
     <packaging>pom</packaging>
 
     <modules>
-        <module>nifi-browser-processors</module>
-        <module>nifi-browser-nar</module>
+        <module>nifi-headlessbrowser-processor</module>
+        <module>nifi-headlessbrowser-nar</module>
     </modules>
 
     <dependencies>
-        <dependency>
-            <groupId>com.machinepublishers</groupId>
-            <artifactId>jbrowserdriver</artifactId>
-            <version>0.17.8</version>
-        </dependency>
         <dependency>
             <groupId>org.apache.nifi</groupId>
             <artifactId>nifi-nar-utils</artifactId>
