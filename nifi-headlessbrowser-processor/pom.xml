@@ -22,7 +22,7 @@
         <version>0.1</version>
     </parent>
 
-    <artifactId>nifi-browser-processors</artifactId>
+    <artifactId>nifi-headlessbrowser-processor</artifactId>
     <packaging>jar</packaging>
 
     <dependencies>
