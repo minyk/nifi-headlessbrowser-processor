@@ -19,19 +19,17 @@ package com.github.minyk.processors.browser;
 import com.machinepublishers.jbrowserdriver.JBrowserDriver;
 import com.machinepublishers.jbrowserdriver.Settings;
 import com.machinepublishers.jbrowserdriver.Timezone;
+import org.apache.nifi.annotation.behavior.RequiresInstanceClassLoading;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.flowfile.FlowFile;
-import org.apache.nifi.nar.NarClassLoader;
 import org.apache.nifi.processor.*;
-import org.apache.nifi.annotation.behavior.ReadsAttribute;
-import org.apache.nifi.annotation.behavior.ReadsAttributes;
 import org.apache.nifi.annotation.behavior.WritesAttribute;
 import org.apache.nifi.annotation.behavior.WritesAttributes;
 import org.apache.nifi.annotation.lifecycle.OnScheduled;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
-import org.apache.nifi.annotation.documentation.SeeAlso;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.processor.exception.ProcessException;
+import org.apache.nifi.logging.ComponentLog;
 import org.apache.nifi.processor.io.InputStreamCallback;
 import org.apache.nifi.processor.io.OutputStreamCallback;
 import org.apache.nifi.processor.util.StandardValidators;
@@ -43,7 +41,6 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.net.URLClassLoader;
 import java.util.*;
 
 @Tags({"get", "html", "browser", "source", "input", "dom"})
@@ -52,6 +49,7 @@ import java.util.*;
                 @WritesAttribute(attribute="URL", description="URL of the source"),
                 @WritesAttribute(attribute = "Timezone", description = "Timezone when page loading.")
         })
+@RequiresInstanceClassLoading
 public class HeadlessBrowserProcessor extends AbstractProcessor {
 
     public static final PropertyDescriptor HOST_OR_IP = new PropertyDescriptor
@@ -87,12 +85,30 @@ public class HeadlessBrowserProcessor extends AbstractProcessor {
             .defaultValue(Timezone.ASIA_SEOUL.name())
             .build();
 
-    public static final PropertyDescriptor PORT_RANGE = new PropertyDescriptor
-            .Builder().name("Port Range")
-            .description("A port range (range is inclusive and separated by a dash) -- e.g., 10000-10007")
+    public static final PropertyDescriptor NUMBER_OF_PROC = new PropertyDescriptor
+            .Builder().name("Number of processes")
+            .description("Maximum number of processes.")
             .required(true)
-            .defaultValue("50001-59999")
-            .addValidator(JBrowserSettingsValidators.PORT_RANGE_VALIDATOR)
+            .defaultValue("2")
+            .addValidator(StandardValidators.POSITIVE_INTEGER_VALIDATOR)
+            .build();
+
+    public static final PropertyDescriptor BLOCK_ADS = new PropertyDescriptor
+            .Builder().name("Block ADs.")
+            .description("If true, block AD scripts.")
+            .required(true)
+            .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
+            .allowableValues("true", "false")
+            .defaultValue("true")
+            .build();
+
+    public static final PropertyDescriptor BLOCK_MEDIA = new PropertyDescriptor
+            .Builder().name("Block media.")
+            .description("If true, block media contents.")
+            .required(true)
+            .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
+            .allowableValues("true", "false")
+            .defaultValue("true")
             .build();
 
     public static final Relationship SUCCESS = new Relationship.Builder()
@@ -111,21 +127,8 @@ public class HeadlessBrowserProcessor extends AbstractProcessor {
 
     private JBrowserDriver driver;
 
-    private final static String CLASSPATH = "java.class.path";
     private final static String ATTR_URL = "url";
     private final static String ATTR_TIMEZONE = "timezone";
-
-    static {
-        if(HeadlessBrowserProcessor.class.getClassLoader() instanceof URLClassLoader) {
-            URL[] urls = ((URLClassLoader) HeadlessBrowserProcessor.class.getClassLoader()).getURLs();
-
-            String cp = "";
-            for (URL url : urls) {
-                cp = cp + ":" + url.getFile();
-            }
-            System.setProperty(CLASSPATH, System.getProperty(CLASSPATH, "") + cp);
-        }
-    }
 
     @Override
     protected void init(final ProcessorInitializationContext context) {
@@ -134,7 +137,9 @@ public class HeadlessBrowserProcessor extends AbstractProcessor {
         descriptors.add(IS_URL_PROVIDED);
         descriptors.add(PAGE_URL);
         descriptors.add(TIMEZONE);
-        descriptors.add(PORT_RANGE);
+        descriptors.add(NUMBER_OF_PROC);
+        descriptors.add(BLOCK_ADS);
+        descriptors.add(BLOCK_MEDIA);
 
         this.descriptors = Collections.unmodifiableList(descriptors);
 
@@ -142,6 +147,7 @@ public class HeadlessBrowserProcessor extends AbstractProcessor {
         relationships.add(SUCCESS);
         relationships.add(FAILED);
         this.relationships = Collections.unmodifiableSet(relationships);
+
     }
 
     @Override
@@ -156,15 +162,25 @@ public class HeadlessBrowserProcessor extends AbstractProcessor {
 
     @OnScheduled
     public void onScheduled(final ProcessContext context) {
-        Timezone tz = Timezone.byName(context.getProperty(TIMEZONE).getValue());
-        String range = context.getProperty(PORT_RANGE).getValue();
-        String host = context.getProperty(HOST_OR_IP).getValue();
+        final ComponentLog logger = getLogger();
 
-        driver = new JBrowserDriver(Settings.builder().processes(range, host).timezone(tz).build());
+        Timezone tz = Timezone.byName(context.getProperty(TIMEZONE).getValue());
+
+        driver = new JBrowserDriver(Settings.builder()
+                .headless(true)
+                .processes(context.getProperty(NUMBER_OF_PROC).asInteger())
+                .timezone(tz)
+                .blockAds(context.getProperty(BLOCK_ADS).asBoolean())
+                .blockMedia(context.getProperty(BLOCK_MEDIA).asBoolean())
+                .build()
+        );
+
+        logger.info("WebDriver was created");
     }
 
     @Override
     public void onTrigger(final ProcessContext context, final ProcessSession session) throws ProcessException {
+        final ComponentLog logger = getLogger();
         boolean url_provided = context.getProperty(IS_URL_PROVIDED).asBoolean();
         FlowFile flowFile = session.get();
 
@@ -190,7 +206,7 @@ public class HeadlessBrowserProcessor extends AbstractProcessor {
             try {
                 new URL(url);
             } catch (MalformedURLException e) {
-                getLogger().error("Malformed URL: " + url);
+                logger.error("Malformed URL: " + url);
                 return;
             }
             driver.get(url);
@@ -214,17 +230,17 @@ public class HeadlessBrowserProcessor extends AbstractProcessor {
 
             outputflowFile = session.putAllAttributes(outputflowFile, attrs);
 
-            getLogger().info("Move result to success connection: " + attrs.get(ATTR_URL));
+            logger.info("Move result to success connection: " + attrs.get(ATTR_URL));
             session.transfer(outputflowFile, SUCCESS);
 
         } else if(driver.getStatusCode() == HttpURLConnection.HTTP_NOT_FOUND) {
-            getLogger().warn("Page is not found: " + driver.getCurrentUrl());
+            logger.warn("Page is not found: " + driver.getCurrentUrl());
             if(flowFile == null) {
                 flowFile = session.create();
             }
             session.transfer(session.penalize(flowFile), FAILED);
         } else {
-            getLogger().warn("Move failed URL to failed connection: " + driver.getCurrentUrl());
+            logger.warn("Move failed URL to failed connection: " + driver.getCurrentUrl());
             if(flowFile == null) {
                 flowFile = session.create();
             }

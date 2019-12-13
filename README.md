@@ -6,6 +6,15 @@ Nifi Headless Browser Processor
 * Returns the page source in its current state to FlowFile, including any DOM updates that occurred after page load.
 * Use [JBrowserDriver](https://github.com/MachinePublishers/jBrowserDriver).
 
+# Prerequisite
+
+* JRE with Java FX
+  * OpenJDK 8 does not contain `Java FX`
+  * Use Oracle JDK or Zulu JDK FX
+  
+* `fontconfig` package on OS.
+  * `yum install fontconfig` or `apt install fontconfig`
+
 # Configurations
 
 Most configuration is used to make JBrowserDriver.

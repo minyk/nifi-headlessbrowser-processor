@@ -35,7 +35,7 @@ public class HeadlessBrowserProcessorTest {
     public void init() {
         testRunner = TestRunners.newTestRunner(HeadlessBrowserProcessor.class);
         testRunner.setProperty(HeadlessBrowserProcessor.IS_URL_PROVIDED, "true");
-        testRunner.setProperty(HeadlessBrowserProcessor.PORT_RANGE, "50001-59999");
+        testRunner.setProperty(HeadlessBrowserProcessor.NUMBER_OF_PROC, "1");
         testRunner.setProperty(HeadlessBrowserProcessor.TIMEZONE, Timezone.ASIA_SEOUL.name());
     }
 
